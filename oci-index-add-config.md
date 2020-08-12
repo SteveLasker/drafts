@@ -41,7 +41,7 @@ The config object could be used to state which image in the collection is the in
 
 #### CNAB Index Example
 
-For mock-up purposes, the digests are replaced with what they represent. 
+For mock-up purposes, the digests are replaced with what they represent.
 
 > The details are also not what's currently implemented, rather what could be if index had a config object.
 
@@ -108,13 +108,13 @@ Storing a signature as a separate artifact enables the above goals, most importa
 
 Several options for how to persist a signature were explored. We measure these options against the [goals of Notary v2][notaryv2-goals], specifically:
 
-* Maintain the original artifact digest and collection of associated tags, supporting existing dev through deployment workflows
-* Multiple signatures per artifact, enabling the originating vendor signature, public registry certification and user/environment signatures
-* Native persistance within an OCI Artifact enabled, distribution*spec based registry
-* Artifact and signature copying within and across OCI Artifact enabled, distribution*spec based registries
-* Support multi-tenant registries enabling cloud providers and enterprises to support managed services at scale
-* Support private registries, where public content may be copied to, and new content originated within
-* Air-gapped environments, where the originating registry of content is not accessible
+- Maintain the original artifact digest and collection of associated tags, supporting existing dev through deployment workflows
+- Multiple signatures per artifact, enabling the originating vendor signature, public registry certification and user/environment signatures
+- Native persistance within an OCI Artifact enabled, distribution*spec based registry
+- Artifact and signature copying within and across OCI Artifact enabled, distribution*spec based registries
+- Support multi-tenant registries enabling cloud providers and enterprises to support managed services at scale
+- Support private registries, where public content may be copied to, and new content originated within
+- Air-gapped environments, where the originating registry of content is not accessible
 
 To support the above requirements, signatures are stored as separate [OCI Artifacts][oci-artifacts]. They are maintained as any other artifact in a registry, supporting standard operations such as listing, deleting, garbage collection and any other content addressable operations within a registry.
 
@@ -130,8 +130,8 @@ Storing a signature as a separate artifact enables the above goals, most importa
 1. An artifact (`net-monitor:v1` container image) is pushed to a registry
 1. Signature artifacts are pushed using standard [OCI distribution][oci-distribution] apis. For example, using [ORAS][oras].
 
-* [Option 1: oci-manifest](#signature-persistance---option-1-oci-manifest)
-* [Option 2: oci-index](#signature-persistance---option-2-oci-index)
+- [Option 1: oci-manifest](#signature-persistance---option-1-oci-manifest)
+- [Option 2: oci-index](#signature-persistance---option-2-oci-index)
 
 | [OCI manifest](#signature-persistance---option-1-oci-manifest) | [OCI index](#signature-persistance---option-2-oci-index)  |
 | - | - |
@@ -158,12 +158,12 @@ Example **manifest** for a **Notary v2 signature
 
 **Pros with this approach:**
 
-* OCI Artifacts already supports manifest based artifacts, through the `manifest.config.mediaType`
+- OCI Artifacts already supports manifest based artifacts, through the `manifest.config.mediaType`
 
 **Cons with this approach:**
 
-* Manifests have no means to reference other artifacts.
-* An alternative is required to link a target artifact with it's signature. Either through parsing the signature `manifest.config` object, or a separate API for linking objects.
+- Manifests have no means to reference other artifacts.
+- An alternative is required to link a target artifact with it's signature. Either through parsing the signature `manifest.config` object, or a separate API for linking objects.
 
 ### Signature Persistance - Option 2: oci-index
 
@@ -196,18 +196,18 @@ Example **index** for a **Notary v2 signature
 
 **Pros with this approach:**
 
-* Utilize the existing `index.manifests` collection for linking artifacts.
-* Registries that support oci index already have infrastructure for tracking `index.manifests`, including delete operations and garbage collection.
-* Existing distribution-spec upload APIs are utilized.
-* Unlike the manifest proposal, no additional artifact handler would be required to parse the config object for linking artifacts.
-* Based on the artifact type:  `manifest.config.mediaType: "application/vnd.cncf.notary.config.v2+jwt"`, role check may be done to confirm the identity has a signer role.
-* As registry operators may offer role checking for different artifact types, signatures are just one of many types they may want to authorize.
+- Utilize the existing `index.manifests` collection for linking artifacts.
+- Registries that support oci index already have infrastructure for tracking `index.manifests`, including delete operations and garbage collection.
+- Existing distribution-spec upload APIs are utilized.
+- Unlike the manifest proposal, no additional artifact handler would be required to parse the config object for linking artifacts.
+- Based on the artifact type:  `manifest.config.mediaType: "application/vnd.cncf.notary.config.v2+jwt"`, role check may be done to confirm the identity has a signer role.
+- As registry operators may offer role checking for different artifact types, signatures are just one of many types they may want to authorize.
 
 **Cons with this approach:**
 
-* OCI index does not yet support the [OCI config descriptor][oci-descriptor]. This would require a schema change to oci-index, with a version bump.
-  * This has been a [desired item for OCI Artifacts][oci-artifacts-index] to support other artifact types which would base on Index.
-* An additional role check is performed, based on the artifact type. Also noted as a pro as registry operators may want to utilize this for other artifact types, making it a consistent model.
+- OCI index does not yet support the [OCI config descriptor][oci-descriptor]. This would require a schema change to oci-index, with a version bump.
+  - This has been a [desired item for OCI Artifacts][oci-artifacts-index] to support other artifact types which would base on Index.
+- An additional role check is performed, based on the artifact type. Also noted as a pro as registry operators may want to utilize this for other artifact types, making it a consistent model.
 
 > **Note:** this is the preferred method: See OCI image-spec issue: [Add Index Support for Artifact Type #806](https://github.com/opencontainers/image-spec/issues/)
 
@@ -294,8 +294,41 @@ To support OCI Artifact with Index, the following are proposed:
 }
 ```
 
+## Implications of Revising Index
+
+Updating the Index schema will have impact, and we'll want to call out the things to consider.
+
+### Distribution Spec
+
+The distribution spec will need to account for handling different schemas.
+Proposal:
+
+- Check schema version
+- If <3 assume all Index objects are multi-arch manifests.
+- If =>3, check `config.mediaType`
+  - If empty, default to `application/vnd.oci.index.config.v2`
+  - Not empty, categorize as OCI Artifacts are tracked within a registry
+
+### Update the docker/distribution Reference Implementation
+
+Update [docker/distribution][docker-distribution] with Index support.
+This would likely be done through the [notaryproject/distribution](https://github.com/notaryproject/distribution) fork. As the Notary v2 project evolves, we'll have the PRs needed.
+
+### Container Runtime Clients
+
+These include containerd, docker, umoci, oras, ...
+Each client should verify they handle new indexes schemas logic:
+
+- Check schema version
+- If <3 assume all Index objects are multi-arch manifests.
+- If =>3, check `config.mediaType`
+  - If empty, default to `application/vnd.oci.index.config.v2`
+  - If `config.mediaType: "application/vnd.cncf.notary.config.v2+jwt"`: process as a signature
+  - else: ignore as the runtime clients are not intended to process. Or, they can start to process types they determine are relevant to their scenarios.
+
 [oci-artifact-unique-artifact]:     https://github.com/opencontainers/artifacts/blob/master/artifact-authors.md#defining-a-unique-artifact-type
 [cnab]:                https://cnab.io
+[docker-distribution]: https://github.com/docker/distribution
 [image-spec]:          https://github.com/opencontainers/image-spec/
 [notary-v2]:           https://github.com/notaryproject/requirements
 [notary-v2-goals]:     https://github.com/notaryproject/requirements/blob/52c1ba2f5696a98b317aff84288d3564b4041ad5/README.md#goals
