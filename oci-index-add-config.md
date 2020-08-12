@@ -7,6 +7,7 @@
 - [Signature Persistance](#signature-persistance)
 - [Changes to Index](#changes-to-index)
 - [OCI Index Changes](#oci-index)
+- [Implications of Revising Index](#implications-of-revising-index)
   
 ## Scenarios Config Enables
 
