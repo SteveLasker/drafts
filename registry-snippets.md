@@ -27,6 +27,16 @@ curl -v -H "Accept: application/vnd.oci.image.manifest.v2+json" \
     awk '{print $3}'
 ```
 
+
+```bash
+curl -u "$username:$password" -X PUT --data-binary "@modified.json" -H "Content-Type: application/vnd.oci.image.manifest.v1+json" "https://$registry/v2/oras/empty/manifests/modified2"
+curl -u "$username:$password" -H "Accept: application/vnd.oci.image.manifest.v1+json" "https://$registry/v2/oras/empty/manifests/modified2" | jq
+
+
+curl -u "$username:$password" -X PUT --data-binary "@artifact.json" -H "Content-Type: application/vnd.oci.artifact.manifest.v1+json" "https://$registry/v2/artifact/manifests/test"
+
+```
+
 ### Query for linked artifacts
 
 ```bash
